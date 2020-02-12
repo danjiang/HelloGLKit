@@ -84,9 +84,6 @@ const GLubyte Indices2[] = {
 @interface ViewController ()
 
 @property (strong, nonatomic) EAGLContext *context;
-//@property (strong, nonatomic) GLKBaseEffect *effect;
-//@property (assign, nonatomic) float curRed;
-//@property (assign, nonatomic) BOOL increasing;
 
 @property (assign, nonatomic) float rotation;
 
@@ -107,19 +104,6 @@ const GLubyte Indices2[] = {
 @property (assign, nonatomic) GLuint projectionUniform;
 @property (assign, nonatomic) GLuint modelViewUniform;
 
-@property (assign, nonatomic) GLKMatrix4 rotMatrix;
-@property (assign, nonatomic) GLKVector3 anchorPosition;
-@property (assign, nonatomic) GLKVector3 currentPosition;
-
-@property (assign, nonatomic) GLKQuaternion quatStart;
-@property (assign, nonatomic) GLKQuaternion quat;
-
-@property (assign, nonatomic) Boolean slerping;
-@property (assign, nonatomic) float slerpCur;
-@property (assign, nonatomic) float slerpMax;
-@property (assign, nonatomic) GLKQuaternion slerpStart;
-@property (assign, nonatomic) GLKQuaternion slerpEnd;
-
 @end
 
 @implementation ViewController
@@ -137,31 +121,17 @@ const GLubyte Indices2[] = {
 }
 
 - (void)setupGL {
-//    self.increasing = YES;
-//    self.curRed = 0.0;
-    
-    self.rotMatrix = GLKMatrix4Identity;
-
     self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
     
     GLKView *glkView = [self getGLKView];
     glkView.context = self.context;
     
     [EAGLContext setCurrentContext:self.context];
-    
-//    self.effect = [GLKBaseEffect new];
-    
+        
     [self compileShaders];
     [self setupVBOs];
     _floorTexture = [self setupTexture:@"tile_floor.png"];
     _fishTexture = [self setupTexture:@"item_powerup_fish.png"];
-    
-    self.quat = GLKQuaternionMake(0, 0, 0, 1);
-    self.quatStart = GLKQuaternionMake(0, 0, 0, 1);
-    
-    UITapGestureRecognizer *dtRec = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(doubleTap:)];
-    dtRec.numberOfTapsRequired = 2;
-    [self.view addGestureRecognizer:dtRec];
 }
 
 - (void)tearDownGL {
@@ -169,8 +139,8 @@ const GLubyte Indices2[] = {
     
     glDeleteBuffers(1, &_vertexBuffer);
     glDeleteBuffers(1, &_indexBuffer);
-    
-//    self.effect = nil;
+    glDeleteBuffers(1, &_vertexBuffer2);
+    glDeleteBuffers(1, &_indexBuffer2);
 }
 
 - (GLKView *)getGLKView {
@@ -178,15 +148,11 @@ const GLubyte Indices2[] = {
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
-    
-//    glClearColor(self.curRed, 0.0, 0.0, 1.0);
     glClearColor(0, 104.0/255.0, 55.0/255.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-
-//    [self.effect prepareToDraw];
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     
     float aspect = fabs(self.view.bounds.size.width / self.view.bounds.size.height);
     GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 2.0f, 10.0f);
@@ -194,25 +160,12 @@ const GLubyte Indices2[] = {
     
     GLKMatrix4 modelViewMatrix = GLKMatrix4MakeTranslation(0.0f, 0.0f, -6.0f);
     
-//    self.rotation += 90 * self.timeSinceLastUpdate;
-//    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(25), 1, 0, 0);
-//    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 1, 0);
+    modelViewMatrix = GLKMatrix4Scale(modelViewMatrix, 0.6, 0.6, 0.6);
     
-//    modelViewMatrix = GLKMatrix4Multiply(modelViewMatrix, self.rotMatrix);
-    
-    if (self.slerping) {
-        self.slerpCur += self.timeSinceLastUpdate;
-        float slerpAmt = self.slerpCur / self.slerpMax;
-        if (slerpAmt > 1.0) {
-            slerpAmt = 1.0;
-            self.slerping = NO;
-        }
-        self.quat = GLKQuaternionSlerp(self.slerpStart, self.slerpEnd, slerpAmt);
-    }
-    
-    GLKMatrix4 rotation = GLKMatrix4MakeWithQuaternion(self.quat);
-    modelViewMatrix = GLKMatrix4Multiply(modelViewMatrix, rotation);
-    
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(25), 1, 0, 0);
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, _rotation, 0, 1, 0);
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, _rotation, 0, 0, 1);
+
     glUniformMatrix4fv(_modelViewUniform, 1, 0, modelViewMatrix.m);
 
     glBindBuffer(GL_ARRAY_BUFFER, self.vertexBuffer);
@@ -245,111 +198,7 @@ const GLubyte Indices2[] = {
 }
 
 - (void)update {
-//    if (self.increasing) {
-//        self.curRed += 1.0 * self.timeSinceLastUpdate;
-//    } else {
-//        self.curRed -= 1.0 * self.timeSinceLastUpdate;
-//    }
-//    if (self.curRed >= 1.0) {
-//        self.curRed = 1.0;
-//        self.increasing = NO;
-//    }
-//    if (self.curRed <= 0.0) {
-//        self.curRed = 0.0;
-//        self.increasing = YES;
-//    }
-    
-//    float aspect = fabs(self.view.bounds.size.width / self.view.bounds.size.height);
-//    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.0f, 10.0f);
-//    self.effect.transform.projectionMatrix = projectionMatrix;
-//
-//    GLKMatrix4 modelViewMatrix = GLKMatrix4MakeTranslation(0.0f, 0.0f, -6.0f);
-//    self.rotation += 90 * self.timeSinceLastUpdate;
-//    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(self.rotation), 0, 0, 1);
-//    self.effect.transform.modelviewMatrix = modelViewMatrix;
-}
-
-- (void)doubleTap:(UITapGestureRecognizer *)tap {
-    self.slerping = YES;
-    self.slerpCur = 0;
-    self.slerpMax = 1.0;
-    self.slerpStart = self.quat;
-    self.slerpEnd = GLKQuaternionMake(0, 0, 0, 1);
-}
-
-#pragma mark - Touch
-
-- (GLKVector3)projectOntoSurface:(GLKVector3)touchPoint {
-    float radius = self.view.bounds.size.width / 3;
-    GLKVector3 center = GLKVector3Make(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2, 0);
-    GLKVector3 P = GLKVector3Subtract(touchPoint, center);
-    
-    P = GLKVector3Make(P.x, P.y * -1, P.z);
-    
-    float radius2 = radius * radius;
-    float length2 = P.x * P.x + P.y * P.y;
-    
-    if (length2 <= radius2) {
-        P.z = sqrt(radius2 - length2);
-    } else {
-        P.z = radius2 / (2.0 * sqrt(length2));
-        float length = sqrt(length2 + P.z * P.z);
-        P = GLKVector3DivideScalar(P, length);
-    }
-    
-    return GLKVector3Normalize(P);
-}
-
-- (void)computeIncremental {
-    GLKVector3 axis = GLKVector3CrossProduct(self.anchorPosition, self.currentPosition);
-    float dot = GLKVector3DotProduct(self.anchorPosition, self.currentPosition);
-    float angle = acosf(dot);
-    
-    GLKQuaternion Q_rot = GLKQuaternionMakeWithAngleAndVector3Axis(angle * 2, axis);
-    Q_rot = GLKQuaternionNormalize(Q_rot);
-    
-    self.quat = GLKQuaternionMultiply(Q_rot, self.quatStart);
-}
-
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    NSLog(@"timeSinceLastUpdate: %f", self.timeSinceLastUpdate);
-    NSLog(@"timeSinceLastDraw: %f", self.timeSinceLastDraw);
-    NSLog(@"timeSinceFirstResume: %f", self.timeSinceFirstResume);
-    NSLog(@"timeSinceLastResume: %f", self.timeSinceLastResume);
-//    self.paused = !self.paused;
-    
-    UITouch *touch = [touches anyObject];
-    CGPoint location = [touch locationInView:self.view];
-    
-    self.anchorPosition = GLKVector3Make(location.x, location.y, 0);
-    self.anchorPosition = [self projectOntoSurface:self.anchorPosition];
-    
-    self.currentPosition = self.anchorPosition;
-    
-    self.quatStart = self.quat;
-}
-
-- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    UITouch *touch = [touches anyObject];
-    CGPoint location = [touch locationInView:self.view];
-    CGPoint lastLoc = [touch previousLocationInView:self.view];
-    CGPoint diff = CGPointMake(lastLoc.x - location.x, lastLoc.y - location.y);
-    
-    float rotX = -1 * GLKMathDegreesToRadians(diff.y / 2.0);
-    float rotY = -1 * GLKMathDegreesToRadians(diff.x / 2.0);
-    
-    bool isInvertible;
-    GLKVector3 xAxis = GLKMatrix4MultiplyVector3(GLKMatrix4Invert(self.rotMatrix, &isInvertible), GLKVector3Make(1, 0, 0));
-    self.rotMatrix = GLKMatrix4Rotate(self.rotMatrix, rotX, xAxis.x, xAxis.y, xAxis.z);
-    GLKVector3 yAxis = GLKMatrix4MultiplyVector3(GLKMatrix4Invert(self.rotMatrix, &isInvertible), GLKVector3Make(0, 1, 0));
-    self.rotMatrix = GLKMatrix4Rotate(self.rotMatrix, rotY, yAxis.x, yAxis.y, yAxis.z);
-    
-    self.currentPosition = GLKVector3Make(location.x, location.y, 0);
-    self.currentPosition = [self projectOntoSurface:self.currentPosition];
-}
-
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    [self computeIncremental];
+    self.rotation = self.rotation + M_PI / 2.0 * self.timeSinceLastUpdate;
 }
 
 #pragma mark - Buffer
@@ -441,6 +290,7 @@ const GLubyte Indices2[] = {
 #pragma mark - Texture
 
 - (GLuint)setupTexture:(NSString *)fileName {
+    // 加载纹理图片
     CGImageRef spriteImage = [UIImage imageNamed:fileName].CGImage;
     if (!spriteImage) {
         NSLog(@"Failed to load image %@", fileName);
