@@ -290,7 +290,7 @@ const GLubyte Indices2[] = {
 #pragma mark - Texture
 
 - (GLuint)setupTexture:(NSString *)fileName {
-    // 加载纹理图片
+    // 从 Bundle 中加载纹理图片
     CGImageRef spriteImage = [UIImage imageNamed:fileName].CGImage;
     if (!spriteImage) {
         NSLog(@"Failed to load image %@", fileName);
@@ -300,20 +300,21 @@ const GLubyte Indices2[] = {
     size_t width = CGImageGetWidth(spriteImage);
     size_t height = CGImageGetHeight(spriteImage);
     
+    // 每个像素由 4 个像素组成，代表 r, g, b, a
     GLubyte *spriteData = (GLubyte *) calloc(width * height * 4, sizeof(GLubyte));
-    
     CGContextRef spriteContext = CGBitmapContextCreate(spriteData, width, height, 8, width * 4, CGImageGetColorSpace(spriteImage), kCGImageAlphaPremultipliedLast);
-    
+    // 在 bitmap context 中绘制纹理图片
     CGContextDrawImage(spriteContext, CGRectMake(0, 0, width, height), spriteImage);
-    
     CGContextRelease(spriteContext);
     
     GLuint texName;
+    // OpenGL 中创建纹理
     glGenTextures(1, &texName);
+    // 绑定纹理，GL_TEXTURE_2D 当前指向 texName 的纹理存储区域
     glBindTexture(GL_TEXTURE_2D, texName);
-    
+    // 给纹理设置参数
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    
+    // 传递像素数据给纹理
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, spriteData);
     
     free(spriteData);
